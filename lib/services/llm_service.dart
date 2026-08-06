@@ -278,6 +278,7 @@ class LlmService extends GetxService {
     required List<Map<String, String>> messages,
     String? systemPrompt,
     double temperature = 0.7,
+    int maxTokens = 1024,
   }) async* {
     if (_engine == null || !isLoaded.value) {
       throw StateError('No model loaded. Call loadModel() first.');
@@ -317,7 +318,7 @@ class LlmService extends GetxService {
         params: GenerationParams(
           temp: temperature,
           stopSequences: stopTokenList,
-          maxTokens: 1024,
+          maxTokens: maxTokens,
         ),
         toolChoice: ToolChoice.none,
       )) {
