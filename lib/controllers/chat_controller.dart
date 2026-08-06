@@ -15,6 +15,7 @@ class ChatController extends GetxController {
   final isGenerating = false.obs;
   final streamedResponse = ''.obs;
   final temperature = 0.7.obs;
+  final maxTokens = 1024.obs;
   final systemPrompt = ''.obs;
 
   StreamSubscription<String>? _genSub;
@@ -24,6 +25,7 @@ class ChatController extends GetxController {
     super.onInit();
     _loadChats();
     temperature.value = _storage.defaultTemperature;
+    maxTokens.value = _storage.defaultMaxTokens;
     systemPrompt.value = _storage.globalSystemPrompt;
   }
 
@@ -110,6 +112,7 @@ class ChatController extends GetxController {
             ? chat.systemPrompt
             : systemPrompt.value,
         temperature: temperature.value,
+        maxTokens: maxTokens.value,
       );
 
       await for (final token in stream) {
@@ -166,6 +169,18 @@ class ChatController extends GetxController {
   void updateTemperature(double temp) {
     temperature.value = temp;
     _storage.defaultTemperature = temp;
+  }
+
+  void updateMaxTokens(int value) {
+    maxTokens.value = value;
+    _storage.defaultMaxTokens = value;
+  }
+
+  void resetGenerationSettings() {
+    temperature.value = 0.7;
+    _storage.defaultTemperature = 0.7;
+    maxTokens.value = 1024;
+    _storage.defaultMaxTokens = 1024;
   }
 
   @override
