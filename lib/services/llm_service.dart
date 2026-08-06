@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
 import 'package:llamadart/llamadart.dart';
 import 'package:path/path.dart' as p;
@@ -231,36 +230,50 @@ class LlmService extends GetxService {
     _loadingCancelled = false;
   }
 
-  /// Tokens/patterns the model may emit that should be stripped from output.
-  /// Covers ChatML, Llama, Gemma, Phi, Mistral, and other common formats.
-  static final _stopPatterns = RegExp(
-    r'<\|end\|>'
-    r'|<\|eot_id\|>'
-    r'|<\|endoftext\|>'
-    r'|<\|im_end\|>'
-    r'|<\|im_start\|>'
-    r'|<end_of_turn>'
-    r'|<start_of_turn>'
-    r'|<\|assistant\|>'
-    r'|<\|user\|>'
-    r'|<\|system\|>'
-    r'|<\|pad\|>'
-    r'|</s>'
-    r'|<s>'
-    r'|\[INST\]'
-    r'|\[/INST\]'
-    r'|\[end\]',
-  );
+  /// Tokens the model may emit that should stop generation and be stripped
+  /// from output. Covers ChatML, Llama, Gemma, Phi, Mistral, and other
+  /// common formats.
+  static const List<String> stopTokenList = [
+    '<|end|>',
+    '<|eot_id|>',
+    '<|endoftext|>',
+    '<|end_of_text|>',
+    '<|im_end|>',
+    '<|im_start|>',
+    '<end_of_turn>',
+    '<start_of_turn>',
+    '<|assistant|>',
+    '<|user|>',
+    '<|system|>',
+    '<|pad|>',
+    '<|start_header_id|>',
+    '<|end_header_id|>',
+    '<|begin_of_text|>',
+    '<|start|>',
+    '<eos>',
+    '<bos>',
+    '</s>',
+    '<s>',
+    '[INST]',
+    '[/INST]',
+    '[end]',
+  ];
 
-  /// Pattern that signals the model is hallucinating a new user turn — stop immediately.
-  static final _userTurnPattern = RegExp(
-    r'<\|user\|>|<\|im_start\|>\s*user|<start_of_turn>\s*user|\[INST\]',
+  /// Regex built from [stopTokenList] for cleaning leftover tokens from output.
+  static final RegExp stopPattern = RegExp(
+    stopTokenList.map(RegExp.escape).join('|'),
   );
 
   /// Generate a streaming response.
   /// [messages] is a list of {role, content} maps.
   /// [systemPrompt] is prepended as a system message.
   /// Returns a Stream of String tokens.
+  ///
+  /// Uses [LlamaEngine.create] so the model's own chat template (from the
+  /// GGUF) is applied and its native stop sequences are respected. This
+  /// prevents runaway generation — repeated endings and raw EOS tokens like
+  /// `< > <|` — caused by hand-rolled prompts that don't match the model's
+  /// actual template.
   Stream<String> generate({
     required List<Map<String, String>> messages,
     String? systemPrompt,
@@ -278,63 +291,46 @@ class LlmService extends GetxService {
     final stopwatch = Stopwatch()..start();
     int tokenCount = 0;
 
-    // Buffer to detect multi-token stop sequences
-    String buffer = '';
-
     try {
-      // Build the full prompt from messages
-      final prompt = _buildPrompt(messages, systemPrompt);
+      final chatMessages = <LlamaChatMessage>[
+        if (systemPrompt != null && systemPrompt.isNotEmpty)
+          LlamaChatMessage.fromText(
+            role: LlamaChatRole.system,
+            text: systemPrompt,
+          ),
+        ...messages.map((m) {
+          final role = m['role'];
+          final content = m['content'] ?? '';
+          return LlamaChatMessage.fromText(
+            role: switch (role) {
+              'assistant' => LlamaChatRole.assistant,
+              'system' => LlamaChatRole.system,
+              _ => LlamaChatRole.user,
+            },
+            text: content,
+          );
+        }),
+      ];
 
-      await for (final token in _engine!.generate(prompt)) {
+      await for (final chunk in _engine!.create(
+        chatMessages,
+        params: GenerationParams(
+          temp: temperature,
+          stopSequences: stopTokenList,
+          maxTokens: 1024,
+        ),
+        toolChoice: ToolChoice.none,
+      )) {
+        final choice = chunk.choices.isNotEmpty ? chunk.choices.first : null;
+        final content = choice?.delta.content;
+        if (content == null || content.isEmpty) continue;
+
         tokenCount++;
         if (stopwatch.elapsedMilliseconds > 0) {
           tokensPerSecond.value =
               tokenCount / (stopwatch.elapsedMilliseconds / 1000);
         }
-
-        // Accumulate into buffer for stop-pattern detection
-        buffer += token;
-
-        // Check if model is hallucinating a user turn — stop immediately
-        if (_userTurnPattern.hasMatch(buffer)) {
-          final cleaned = buffer
-              .replaceAll(_stopPatterns, '')
-              .replaceAll(_userTurnPattern, '')
-              .trim();
-          if (cleaned.isNotEmpty) {
-            yield cleaned;
-          }
-          break;
-        }
-
-        // Check if buffer contains any stop pattern
-        if (_stopPatterns.hasMatch(buffer)) {
-          // Yield everything before the stop pattern, then stop
-          final cleaned = buffer.replaceAll(_stopPatterns, '').trim();
-          if (cleaned.isNotEmpty) {
-            yield cleaned;
-          }
-          break;
-        }
-
-        // If buffer is getting long enough that we know it's safe, flush it
-        // Keep last 30 chars to detect split stop sequences
-        if (buffer.length > 40) {
-          final safe = buffer.substring(0, buffer.length - 30);
-          buffer = buffer.substring(buffer.length - 30);
-          yield safe;
-        }
-      }
-
-      // Flush any remaining buffer (cleaning all control patterns)
-      if (buffer.isNotEmpty) {
-        final cleaned = buffer
-            .replaceAll(_stopPatterns, '')
-            .replaceAll(_userTurnPattern, '')
-            .trim();
-        if (cleaned.isNotEmpty) {
-          yield cleaned;
-        }
+        yield content;
       }
     } finally {
       stopwatch.stop();
@@ -429,31 +425,6 @@ class LlmService extends GetxService {
       final wakelockService = Get.find<WakelockService>();
       await wakelockService.disable();
     } catch (_) {}
-  }
-
-  /// Build a single prompt string from chat messages.
-  String _buildPrompt(
-    List<Map<String, String>> messages,
-    String? systemPrompt,
-  ) {
-    final buffer = StringBuffer();
-
-    if (systemPrompt != null && systemPrompt.isNotEmpty) {
-      buffer.writeln('<|system|>');
-      buffer.writeln(systemPrompt);
-      buffer.writeln('<|end|>');
-    }
-
-    for (final msg in messages) {
-      final role = msg['role'] ?? 'user';
-      final content = msg['content'] ?? '';
-      buffer.writeln('<|$role|>');
-      buffer.writeln(content);
-      buffer.writeln('<|end|>');
-    }
-
-    buffer.writeln('<|assistant|>');
-    return buffer.toString();
   }
 
   @override
