@@ -226,7 +226,12 @@ class _SettingsBody extends StatelessWidget {
               const SizedBox(height: 28),
 
               // ── Temperature ───────────────────────────────
-              _sectionHeader(context, 'Temperature'),
+              _sectionHeader(context, 'Generation Settings'),
+              const SizedBox(height: 8),
+              Text(
+                'Max output length and temperature apply to all chats.',
+                style: TextStyle(fontSize: 12, color: context.textD),
+              ),
               const SizedBox(height: 12),
               _card(
                 context,
@@ -271,6 +276,80 @@ class _SettingsBody extends StatelessWidget {
                         ),
                       ],
                     ),
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+              _card(
+                context,
+                child: Obx(
+                  () => Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          Icons.token_rounded,
+                          size: 20,
+                          color: context.textM,
+                        ),
+                        Expanded(
+                          child: Slider(
+                            value: chatCtrl.maxTokens.value.toDouble(),
+                            min: 64,
+                            max: 4096,
+                            divisions: 63,
+                            activeColor: AppColors.accent,
+                            inactiveColor: context.border,
+                            label: chatCtrl.maxTokens.value.toString(),
+                            onChanged: (v) =>
+                                chatCtrl.updateMaxTokens(v.round()),
+                          ),
+                        ),
+                        SizedBox(
+                          width: 56,
+                          child: Text(
+                            chatCtrl.maxTokens.value.toString(),
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: context.text,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.restart_alt_rounded, size: 18),
+                label: const Text(
+                  'Reset to Defaults',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                onPressed: () {
+                  chatCtrl.resetGenerationSettings();
+                  Get.snackbar(
+                    'Reset',
+                    'Max output length reset to 1024, temperature to 0.7.',
+                    snackPosition: SnackPosition.BOTTOM,
+                  );
+                },
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: context.text,
+                  side: BorderSide(color: context.border),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
