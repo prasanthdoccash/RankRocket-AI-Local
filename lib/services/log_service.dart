@@ -56,7 +56,7 @@ class LogService extends GetxService {
   /// Export all logs as a single string for sharing.
   String exportAll() {
     final buf = StringBuffer();
-    buf.writeln('=== Portable AI Logs ===');
+    buf.writeln('=== RankRocket AI Logs ===');
     buf.writeln('Exported: ${DateTime.now().toIso8601String()}');
     buf.writeln('Total entries: ${logs.length}');
     buf.writeln('');

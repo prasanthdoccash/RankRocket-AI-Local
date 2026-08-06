@@ -16,7 +16,7 @@ class WakelockService extends GetxService {
       FlutterForegroundTask.init(
         androidNotificationOptions: AndroidNotificationOptions(
           channelId: 'portable_ai_foreground',
-          channelName: 'Uncensored Local AI',
+          channelName: 'RankRocket AI',
           channelDescription: 'Keeps downloads and AI inference running',
           channelImportance: NotificationChannelImportance.LOW,
           priority: NotificationPriority.LOW,

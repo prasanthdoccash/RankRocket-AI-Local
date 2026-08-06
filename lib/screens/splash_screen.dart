@@ -105,7 +105,7 @@ class _SplashScreenState extends State<SplashScreen> {
                 .scale(begin: const Offset(0.8, 0.8)),
             const SizedBox(height: 24),
             Text(
-              'Uncensored Local AI',
+              'RankRocket AI',
               style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.w700,

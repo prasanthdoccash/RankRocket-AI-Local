@@ -64,7 +64,7 @@ class PortableAIApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return GetMaterialApp(
-      title: 'Uncensored Local AI',
+      title: 'RankRocket AI',
       debugShowCheckedModeBanner: false,
       themeMode: themeController.themeMode,
       theme: AppTheme.lightTheme,

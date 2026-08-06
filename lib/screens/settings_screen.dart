@@ -734,7 +734,7 @@ class _SettingsBody extends StatelessWidget {
                 child: Column(
                   children: [
                     Text(
-                      'Uncensored Local AI v2.0.0',
+                      'RankRocket AI v2.0.0',
                       style: TextStyle(
                         fontSize: 13,
                         fontWeight: FontWeight.w500,
