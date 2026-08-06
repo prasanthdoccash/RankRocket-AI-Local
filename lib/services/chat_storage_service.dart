@@ -73,6 +73,12 @@ class ChatStorageService extends GetxService {
   set defaultTemperature(double value) =>
       _settingsBox.put('temperature', value);
 
+  int get defaultMaxTokens =>
+      (_settingsBox.get('max_tokens', defaultValue: 1024) as num).toInt();
+
+  set defaultMaxTokens(int value) =>
+      _settingsBox.put('max_tokens', value);
+
   String get lastModelId =>
       _settingsBox.get('last_model_id', defaultValue: '') as String;
 
