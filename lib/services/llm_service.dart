@@ -417,6 +417,7 @@ class LlmService extends GetxService {
     }
     // Also destroy the backend — it can't be reused after engine disposal
     _backend = null;
+    _contextSize = 0;
     isLoaded.value = false;
     loadedModelPath.value = '';
     tokensPerSecond.value = 0.0;

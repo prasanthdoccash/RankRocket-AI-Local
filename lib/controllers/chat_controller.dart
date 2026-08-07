@@ -103,14 +103,18 @@ class ChatController extends GetxController {
         : systemPrompt.value;
 
     // Trim history to the context window so long chats never overflow.
-    final trimmed = _llm.contextSize > 0
-        ? await ChatContextTrimmer.trimHistory(
-            messages: history,
-            systemPrompt: effectiveSystemPrompt,
-            contextSize: _llm.contextSize,
-            countTokens: (t) => _llm.countTokens(t),
-          )
-        : history;
+    // Only trim while a model is actually loaded: countTokens needs a live
+    // engine, and during load/unload contextSize may be non-zero while no
+    // engine is usable yet.
+    final trimmed =
+        (_llm.contextSize > 0 && _llm.isLoaded.value)
+            ? await ChatContextTrimmer.trimHistory(
+                messages: history,
+                systemPrompt: effectiveSystemPrompt,
+                contextSize: _llm.contextSize,
+                countTokens: (t) => _llm.countTokens(t),
+              )
+            : history;
 
     // Start generation
     isGenerating.value = true;

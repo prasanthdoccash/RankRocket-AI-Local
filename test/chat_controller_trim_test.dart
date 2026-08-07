@@ -13,7 +13,12 @@ class _FakeLlmService extends LlmService {
   int get contextSize => 100;
 
   @override
-  Future<int> countTokens(String text) async => text.length;
+  Future<int> countTokens(String text) async {
+    if (!isLoaded.value) {
+      throw StateError('No model loaded. Call loadModel() first.');
+    }
+    return text.length;
+  }
 
   @override
   Stream<String> generate({
@@ -38,6 +43,7 @@ void main() {
   setUp(() {
     Get.put<LlmService>(_FakeLlmService());
     Get.put<ChatStorageService>(_FakeStorage());
+    (Get.find<LlmService>() as _FakeLlmService).isLoaded.value = true;
   });
 
   tearDown(() => Get.reset());
@@ -65,5 +71,27 @@ void main() {
     expect(llm.lastMessages![0]['role'], 'user');
     expect(llm.lastMessages![1]['content'], 'hello');
     expect(llm.lastMessages![1]['role'], 'user');
+  });
+
+  test('passes history through untrimmed when the model is not loaded', () async {
+    final llm = Get.find<LlmService>() as _FakeLlmService;
+    llm.isLoaded.value = false;
+    final ctrl = ChatController();
+
+    final chat = ChatModel(id: '2', systemPrompt: '');
+    chat.messages.addAll([
+      MessageModel(role: MessageRole.user, content: 'x' * 30), // 46 tokens
+      MessageModel(role: MessageRole.assistant, content: 'y' * 30), // 46
+      MessageModel(role: MessageRole.user, content: 'z' * 5), // 21
+    ]);
+    ctrl.chats.add(chat);
+    ctrl.activeChatId.value = chat.id;
+
+    // No model loaded: trimming must be skipped (countTokens would throw a
+    // StateError) so the call never crashes before the try/catch; the real
+    // LlmService raises its StateError inside generate(), rendered in-chat.
+    await ctrl.sendMessage('hello');
+
+    expect(llm.lastMessages, hasLength(4));
   });
 }
