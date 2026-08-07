@@ -79,6 +79,11 @@ class ChatStorageService extends GetxService {
   set defaultMaxTokens(int value) =>
       _settingsBox.put('max_tokens', value);
 
+  int get contextSize =>
+      (_settingsBox.get('context_size', defaultValue: 4096) as num).toInt();
+
+  set contextSize(int value) => _settingsBox.put('context_size', value);
+
   String get lastModelId =>
       _settingsBox.get('last_model_id', defaultValue: '') as String;
 

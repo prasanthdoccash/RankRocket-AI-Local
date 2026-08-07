@@ -45,4 +45,16 @@ void main() {
     final reloaded = await ChatStorageService().init();
     expect(reloaded.defaultMaxTokens, 2048);
   });
+
+  test('contextSize defaults to 4096', () async {
+    final storage = await ChatStorageService().init();
+    expect(storage.contextSize, 4096);
+  });
+
+  test('contextSize roundtrips through Hive', () async {
+    final storage = await ChatStorageService().init();
+    storage.contextSize = 8192;
+    final reloaded = await ChatStorageService().init();
+    expect(reloaded.contextSize, 8192);
+  });
 }
