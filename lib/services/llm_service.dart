@@ -28,6 +28,8 @@ class LlmService extends GetxService {
 
   StreamSubscription? _generateSub;
 
+  int _contextSize = 0;
+
   String get loadedModelFilename {
     final path = loadedModelPath.value;
     if (path.isEmpty) return '';
@@ -45,6 +47,9 @@ class LlmService extends GetxService {
         .replaceAll(RegExp(r'-+'), '-')
         .replaceAll(RegExp(r'^-|-$'), '');
   }
+
+  /// The model's context window in tokens (0 until a model is loaded).
+  int get contextSize => _contextSize;
 
   /// Initialize the service.
   Future<LlmService> init() async {
@@ -146,13 +151,13 @@ class LlmService extends GetxService {
         return;
       }
 
-      // Use smaller context on Android to prevent OOM kills.
-      // Desktop can handle 2048, but Android devices with limited RAM
-      // need 1024 to avoid the Low Memory Killer (LMK).
-      final contextSize = Platform.isAndroid ? 1024 : 2048;
-
-      // Map the string backend to GpuBackend enum
+      // Context window is user-configurable (default 4096). Larger windows
+      // consume more KV-cache RAM; the Settings recommendation is based on
+      // the device's total RAM.
       final storage = Get.find<ChatStorageService>();
+      final contextSize = storage.contextSize;
+      _contextSize = contextSize;
+
       GpuBackend parsedBackend;
       switch (storage.backendType) {
         case 'vulkan':
@@ -383,13 +388,13 @@ class LlmService extends GetxService {
     }
   }
 
+  /// Tokenize [text] with the loaded model's tokenizer.
   Future<int> countTokens(String text) async {
-    if (_engine == null || !isLoaded.value) return 0;
-    try {
-      return await _engine!.getTokenCount(text);
-    } catch (_) {
-      return 0;
+    final engine = _engine;
+    if (engine == null || !isLoaded.value) {
+      throw StateError('No model loaded. Call loadModel() first.');
     }
+    return (await engine.tokenize(text, addSpecial: false)).length;
   }
 
   /// Stop ongoing generation.
