@@ -5,6 +5,7 @@ import '../models/chat_model.dart';
 import '../models/message_model.dart';
 import '../services/llm_service.dart';
 import '../services/chat_storage_service.dart';
+import '../services/chat_context_trim.dart';
 
 class ChatController extends GetxController {
   final LlmService _llm = Get.find<LlmService>();
@@ -97,6 +98,20 @@ class ChatController extends GetxController {
         .map((m) => m.toLlamaMessage())
         .toList();
 
+    final effectiveSystemPrompt = chat.systemPrompt.isNotEmpty
+        ? chat.systemPrompt
+        : systemPrompt.value;
+
+    // Trim history to the context window so long chats never overflow.
+    final trimmed = _llm.contextSize > 0
+        ? await ChatContextTrimmer.trimHistory(
+            messages: history,
+            systemPrompt: effectiveSystemPrompt,
+            contextSize: _llm.contextSize,
+            countTokens: (t) => _llm.countTokens(t),
+          )
+        : history;
+
     // Start generation
     isGenerating.value = true;
     streamedResponse.value = '';
@@ -107,10 +122,8 @@ class ChatController extends GetxController {
 
     try {
       final stream = _llm.generate(
-        messages: history,
-        systemPrompt: chat.systemPrompt.isNotEmpty
-            ? chat.systemPrompt
-            : systemPrompt.value,
+        messages: trimmed,
+        systemPrompt: effectiveSystemPrompt,
         temperature: temperature.value,
         maxTokens: maxTokens.value,
       );
