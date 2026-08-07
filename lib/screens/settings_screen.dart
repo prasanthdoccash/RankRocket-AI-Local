@@ -10,6 +10,8 @@ import '../services/local_api_server_service.dart';
 import '../services/model_manager.dart';
 import '../services/background_optimizer_service.dart';
 import '../services/chat_storage_service.dart';
+import '../services/context_recommender.dart';
+import '../services/device_info_service.dart';
 
 class SettingsScreen extends StatelessWidget {
   /// When true, no Scaffold — just the body content for embedding in tabs.
@@ -850,6 +852,12 @@ class _HardwareSettingsCardState extends State<_HardwareSettingsCard> {
   late double _gpuLayers;
   bool _showManual = false;
 
+  static const List<int> _contextOptions = [1024, 4096, 8192];
+
+  late int _contextSize;
+  int? _recommendedContext;
+  String? _ramLabel;
+
   // Auto-detect the best backend and GPU layers for this device
   static Map<String, dynamic> _detectBestConfig() {
     if (!Platform.isAndroid && !Platform.isIOS) {
@@ -889,6 +897,10 @@ class _HardwareSettingsCardState extends State<_HardwareSettingsCard> {
     super.initState();
     _backend = widget.storage.backendType;
     _gpuLayers = widget.storage.gpuLayers.toDouble();
+    _contextSize = _contextOptions.contains(widget.storage.contextSize)
+        ? widget.storage.contextSize
+        : 4096;
+    _loadRecommendation();
   }
 
   void _applyAutoConfig() {
@@ -923,6 +935,32 @@ class _HardwareSettingsCardState extends State<_HardwareSettingsCard> {
   void _saveGpuLayers(double val) {
     setState(() => _gpuLayers = val);
     widget.storage.gpuLayers = val.toInt();
+  }
+
+  Future<void> _loadRecommendation() async {
+    final ram = await DeviceInfoService().getTotalRamBytes();
+    if (ram == null) return;
+    setState(() {
+      _recommendedContext = ContextRecommender.recommendContextSize(ram);
+      _ramLabel = ContextRecommender.formatRamBytes(ram);
+    });
+  }
+
+  void _saveContext(int value) {
+    setState(() => _contextSize = value);
+    widget.storage.contextSize = value;
+  }
+
+  void _applyRecommendedContext() {
+    final rec = _recommendedContext;
+    if (rec == null) return;
+    _saveContext(rec);
+    Get.snackbar(
+      'Context Applied',
+      'Context window set to $rec tokens. Reload the model to apply.',
+      snackPosition: SnackPosition.BOTTOM,
+      duration: const Duration(seconds: 2),
+    );
   }
 
   String get _currentConfigLabel {
@@ -1006,6 +1044,90 @@ class _HardwareSettingsCardState extends State<_HardwareSettingsCard> {
           ),
 
           const SizedBox(height: 16),
+
+          // ── Context Window ──
+          Row(
+            children: [
+              Icon(Icons.memory_rounded, size: 18, color: AppColors.accent),
+              const SizedBox(width: 8),
+              Text(
+                'Context Window',
+                style: TextStyle(color: context.text, fontSize: 15, fontWeight: FontWeight.w600),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Tokens the model remembers. Larger windows use more RAM. Applies after reloading the model.',
+            style: TextStyle(color: context.textM, fontSize: 11),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: SliderTheme(
+                  data: SliderTheme.of(context).copyWith(
+                    activeTrackColor: AppColors.accent,
+                    inactiveTrackColor: context.border,
+                    thumbColor: AppColors.accent,
+                    overlayColor: AppColors.accent.withValues(alpha: 0.2),
+                  ),
+                  child: Slider(
+                    value: _contextOptions.indexOf(_contextSize).toDouble(),
+                    min: 0,
+                    max: 2,
+                    divisions: 2,
+                    onChanged: (v) => _saveContext(_contextOptions[v.round()]),
+                  ),
+                ),
+              ),
+              SizedBox(
+                width: 56,
+                child: Text(
+                  _contextSize.toString(),
+                  style: TextStyle(color: context.text, fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ],
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                for (final opt in _contextOptions)
+                  Text(
+                    opt.toString(),
+                    style: TextStyle(color: context.textD, fontSize: 11),
+                  ),
+              ],
+            ),
+          ),
+          if (_recommendedContext != null && _ramLabel != null) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Recommended: $_recommendedContext ($_ramLabel RAM)',
+                    style: TextStyle(color: context.textM, fontSize: 12),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
+                  onPressed: _applyRecommendedContext,
+                  icon: const Icon(Icons.auto_fix_high_rounded, size: 16),
+                  label: const Text('Apply'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: context.text,
+                    side: BorderSide(color: context.border),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
+              ],
+            ),
+          ],
 
           // ── Manual Override Toggle ──
           InkWell(
