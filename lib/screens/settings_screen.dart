@@ -13,6 +13,7 @@ import '../services/background_optimizer_service.dart';
 import '../services/chat_storage_service.dart';
 import '../services/context_recommender.dart';
 import '../services/device_info_service.dart';
+import '../models/license_state.dart';
 import '../services/license_service.dart';
 
 class SettingsScreen extends StatelessWidget {
@@ -148,6 +149,13 @@ class _SettingsBody extends StatelessWidget {
                               ),
                             ),
                           ),
+                        // ── Expiry date & renewal alert ──
+                        if (code.isNotEmpty) ...[
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
+                            child: _buildExpiryInfo(context, license),
+                          ),
+                        ],
                       ],
                     );
                   },
@@ -882,6 +890,126 @@ class _SettingsBody extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: child,
+    );
+  }
+
+  Widget _buildExpiryInfo(BuildContext context, LicenseService license) {
+    final info = license.info.value;
+    final status = license.status.value;
+    final expiresAt = info?.expiresAt;
+    final daysLeft = info?.daysLeft ?? 0;
+
+    // Format expiry date
+    String expiryText = 'Unknown';
+    if (expiresAt != null) {
+      expiryText = '${expiresAt.day}/${expiresAt.month}/${expiresAt.year}';
+    }
+
+    // Determine status color and message
+    Color statusColor;
+    String statusLabel;
+    String? alertMessage;
+
+    switch (status) {
+      case LicenseStatus.active:
+        statusColor = AppColors.green;
+        statusLabel = 'Licensed';
+        if (daysLeft <= 30 && daysLeft > 0) {
+          alertMessage = 'License expires in $daysLeft days. Contact rpfinserv24@gmail.com to extend.';
+        }
+        break;
+      case LicenseStatus.trial:
+        statusColor = AppColors.orange;
+        statusLabel = 'Trial';
+        if (daysLeft <= 3 && daysLeft > 0) {
+          alertMessage = 'Trial expires in $daysLeft days! Email your device code to get a license key.';
+        } else if (daysLeft > 0) {
+          alertMessage = 'Trial: $daysLeft days remaining.';
+        } else {
+          alertMessage = 'Trial expired. Email your device code to get a license key.';
+        }
+        break;
+      case LicenseStatus.expired:
+        statusColor = AppColors.red;
+        statusLabel = 'Expired';
+        alertMessage = 'License expired. Contact rpfinserv24@gmail.com to extend.';
+        break;
+      case LicenseStatus.offline:
+        statusColor = context.textD;
+        statusLabel = 'Offline';
+        alertMessage = 'Cannot verify license. Check your internet connection.';
+        break;
+      default:
+        statusColor = context.textD;
+        statusLabel = 'Unknown';
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Expiry date row
+        Row(
+          children: [
+            Icon(Icons.calendar_today_rounded, size: 14, color: context.textM),
+            const SizedBox(width: 6),
+            Text(
+              'Expires: $expiryText',
+              style: TextStyle(color: context.textM, fontSize: 12),
+            ),
+            const Spacer(),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(6),
+              ),
+              child: Text(
+                statusLabel,
+                style: TextStyle(
+                  color: statusColor,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        // Renewal alert
+        if (alertMessage != null) ...[
+          const SizedBox(height: 8),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.08),
+              border: Border.all(color: statusColor.withValues(alpha: 0.25)),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  status == LicenseStatus.expired || status == LicenseStatus.trial
+                      ? Icons.warning_amber_rounded
+                      : Icons.info_outline_rounded,
+                  size: 16,
+                  color: statusColor,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    alertMessage,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: context.text,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 
