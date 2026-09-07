@@ -1,0 +1,71 @@
+name: Build iOS IPA (TrollStore)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version tag (e.g. 1.1.0). Leave blank to skip creating a GitHub Release.'
+        required: false
+        default: ''
+
+jobs:
+  build:
+    name: Build unsigned/ad-hoc iOS IPA
+    runs-on: macos-15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          cache: true
+
+      - name: Get dependencies
+        run: flutter pub get
+
+      - name: Build iOS release (no code sign)
+        run: flutter build ipa --release --no-codesign
+
+      - name: Ad-hoc sign IPA for TrollStore
+        id: package
+        run: |
+          set -euxo pipefail
+          IPA=$(find build/ios/ipa -name '*.ipa' | head -1)
+          if [ -z "$IPA" ]; then
+            echo "::error::No IPA produced by flutter build"
+            exit 1
+          fi
+          WORK=$(mktemp -d)
+          unzip -q "$IPA" -d "$WORK"
+          codesign -f -s - --timestamp=none "$WORK/Payload/Runner.app"
+          (cd "$WORK" && zip -rqy "$RUNNER_TEMP/RankRocketAI.ipa" Payload)
+          echo "ipa=$RUNNER_TEMP/RankRocketAI.ipa" >> "$GITHUB_OUTPUT"
+
+      - name: Verify signed IPA
+        run: |
+          set -euxo pipefail
+          WORK=$(mktemp -d)
+          unzip -q "${{ steps.package.outputs.ipa }}" -d "$WORK"
+          codesign --verify --deep "$WORK/Payload/Runner.app" && echo "Ad-hoc signature valid"
+          unzip -l "${{ steps.package.outputs.ipa }}" | head -20
+
+      - name: Upload IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: RankRocketAI-ios
+          path: ${{ steps.package.outputs.ipa }}
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: github.event.inputs.version != ''
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.event.inputs.version }}
+          name: RankRocket AI iOS ${{ github.event.inputs.version }}
+          draft: true
+          files: ${{ steps.package.outputs.ipa }}
