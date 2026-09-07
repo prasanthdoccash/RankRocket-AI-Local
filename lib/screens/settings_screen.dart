@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 
 import '../theme/app_colors.dart';
@@ -12,6 +13,7 @@ import '../services/background_optimizer_service.dart';
 import '../services/chat_storage_service.dart';
 import '../services/context_recommender.dart';
 import '../services/device_info_service.dart';
+import '../services/license_service.dart';
 
 class SettingsScreen extends StatelessWidget {
   /// When true, no Scaffold — just the body content for embedding in tabs.
@@ -87,6 +89,71 @@ class _SettingsBody extends StatelessWidget {
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [
+              // ── Device / License ───────────────────────────
+              _sectionHeader(context, 'Device & License'),
+              const SizedBox(height: 12),
+              _card(
+                context,
+                child: Obx(
+                  () {
+                    final license = Get.find<LicenseService>();
+                    final code = license.info.value?.deviceCode ?? '';
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ListTile(
+                          contentPadding: EdgeInsets.zero,
+                          leading: Icon(Icons.phone_iphone_rounded,
+                              color: context.textM),
+                          title: Text(
+                            'Device Code',
+                            style: TextStyle(
+                                color: context.text, fontSize: 14),
+                          ),
+                          subtitle: Text(
+                            'Share this code with rpfinser24@gmail.com if you need help or a license key.',
+                            style: TextStyle(color: context.textD, fontSize: 12),
+                          ),
+                          trailing: code.isEmpty
+                              ? null
+                              : IconButton(
+                                  icon: Icon(Icons.copy_rounded,
+                                      size: 20, color: context.textM),
+                                  onPressed: () =>
+                                      Clipboard.setData(ClipboardData(text: code)),
+                                ),
+                        ),
+                        if (code.isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: context.bgInput,
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(
+                                    color: AppColors.accent.withValues(alpha: 0.4)),
+                              ),
+                              child: Text(
+                                code,
+                                style: TextStyle(
+                                  color: context.text,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 2,
+                                  fontFamily: 'monospace',
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    );
+                  },
+                ),
+              ),
+
               // ── Appearance ────────────────────────────────
               _sectionHeader(context, 'Appearance'),
               const SizedBox(height: 12),
