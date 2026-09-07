@@ -6,9 +6,11 @@ import '../screens/model_library_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/api_endpoints_screen.dart';
 import '../screens/logs_screen.dart';
+import '../screens/license_screen.dart';
 
 class AppRoutes {
   static const splash = '/splash';
+  static const license = '/license';
   static const home = '/home';
   static const modelLibrary = '/models';
   static const settings = '/settings';
@@ -18,6 +20,7 @@ class AppRoutes {
   static final pages = [
     GetPage(name: splash, page: () => const SplashScreen()),
     GetPage(name: home, page: () => const HomeScreen()),
+    GetPage(name: license, page: () => const LicenseScreen()),
     GetPage(
       name: modelLibrary,
       page: () => const ModelLibraryScreen(),

@@ -3,38 +3,25 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:portable_ai_flutter/services/device_info_service.dart';
 
 void main() {
-  const channel = MethodChannel('rankrocket/device');
-
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  tearDown(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, null);
-  });
-
-  test('returns total RAM in bytes when the platform reports it', () async {
+  test('returns stable device id from platform channel', () async {
+    const channel = MethodChannel('rankrocket/device');
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(channel, (call) async {
-      expect(call.method, 'getTotalRam');
-      return 8 * 1024 * 1024 * 1024;
+      if (call.method == 'getStableDeviceId') return 'ANDROID_ID_123';
+      if (call.method == 'getDeviceModel') return 'Pixel 8';
+      if (call.method == 'getOsVersion') return '14';
+      if (call.method == 'getAppVersion') return '1.1.0';
+      return null;
     });
+    addTearDown(() => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, null));
 
-    final ram = await DeviceInfoService().getTotalRamBytes();
-    expect(ram, 8 * 1024 * 1024 * 1024);
-  });
-
-  test('returns null when the platform throws an error', () async {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(channel, (call) async {
-      throw PlatformException(code: 'RAM_UNAVAILABLE');
-    });
-
-    final ram = await DeviceInfoService().getTotalRamBytes();
-    expect(ram, isNull);
-  });
-
-  test('returns null when the platform has no implementation', () async {
-    final ram = await DeviceInfoService().getTotalRamBytes();
-    expect(ram, isNull);
+    final svc = DeviceInfoService();
+    expect(await svc.getStableDeviceId(), 'ANDROID_ID_123');
+    expect(await svc.getDeviceModel(), 'Pixel 8');
+    expect(await svc.getOsVersion(), '14');
+    expect(await svc.getAppVersion(), '1.1.0');
   });
 }

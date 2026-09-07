@@ -14,6 +14,10 @@ build/
 .env
 .env.local
 *.env.*
+!*.env.example
+
+# Execution workspace
+.superpowers/
 
 # Logs
 *.log

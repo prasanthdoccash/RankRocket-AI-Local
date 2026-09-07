@@ -10,6 +10,8 @@ import '../services/local_api_server_service.dart';
 import '../services/wakelock_service.dart';
 import '../services/log_service.dart';
 import '../services/background_optimizer_service.dart';
+import '../models/license_state.dart';
+import '../services/license_service.dart';
 import '../routes/app_routes.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -53,6 +55,10 @@ class _SplashScreenState extends State<SplashScreen> {
       log.info('Setting up background services...', source: 'Splash');
       await Get.find<WakelockService>().init();
 
+      setState(() => _status = 'Checking license...');
+      log.info('Checking license...', source: 'Splash');
+      await Get.find<LicenseService>().init();
+
       setState(() => _status = 'Ready!');
       log.info('All services initialized successfully', source: 'Splash');
       await Future.delayed(const Duration(milliseconds: 500));
@@ -62,7 +68,13 @@ class _SplashScreenState extends State<SplashScreen> {
         await BackgroundOptimizerService.checkAndPrompt(context);
       }
 
-      Get.offAllNamed(AppRoutes.home);
+      final license = Get.find<LicenseService>();
+      if (license.status.value == LicenseStatus.trial ||
+          license.status.value == LicenseStatus.active) {
+        Get.offAllNamed(AppRoutes.home);
+      } else {
+        Get.offAllNamed(AppRoutes.license);
+      }
     } catch (e) {
       setState(() => _status = 'Error: $e');
       try {

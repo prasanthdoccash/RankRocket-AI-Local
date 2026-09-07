@@ -9,6 +9,7 @@ import '../services/llm_service.dart';
 import '../widgets/chat_sidebar.dart';
 import '../widgets/chat_bubble.dart';
 import '../widgets/typing_indicator.dart';
+import '../widgets/license_trial_banner.dart';
 import 'model_library_screen.dart';
 import 'settings_screen.dart';
 
@@ -336,15 +337,22 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: SafeArea(
         bottom: false, // let the bottom nav handle the safe area
-        child: IndexedStack(
-          index: _mobileTabIndex,
+        child: Column(
           children: [
-            // Tab 0: Chat
-            _buildMobileChatTab(),
-            // Tab 1: Models
-            const ModelLibraryScreen(embedded: true),
-            // Tab 2: Settings
-            const SettingsScreen(embedded: true),
+            const LicenseTrialBanner(),
+            Expanded(
+              child: IndexedStack(
+                index: _mobileTabIndex,
+                children: [
+                  // Tab 0: Chat
+                  _buildMobileChatTab(),
+                  // Tab 1: Models
+                  const ModelLibraryScreen(embedded: true),
+                  // Tab 2: Settings
+                  const SettingsScreen(embedded: true),
+                ],
+              ),
+            ),
           ],
         ),
       ),
