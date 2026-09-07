@@ -28,20 +28,21 @@ jobs:
       - name: Get dependencies
         run: flutter pub get
 
-      - name: Build iOS release (no code sign)
-        run: flutter build ipa --release --no-codesign
+      - name: Build iOS release app bundle (no code sign)
+        run: flutter build ios --release --no-codesign
 
-      - name: Ad-hoc sign IPA for TrollStore
+      - name: Ad-hoc sign and package IPA for TrollStore
         id: package
         run: |
           set -euxo pipefail
-          IPA=$(find build/ios/ipa -name '*.ipa' | head -1)
-          if [ -z "$IPA" ]; then
-            echo "::error::No IPA produced by flutter build"
+          APP=$(find build/ios/iphoneos -name 'Runner.app' | head -1)
+          if [ -z "$APP" ]; then
+            echo "::error::Runner.app not found from flutter build"
             exit 1
           fi
           WORK=$(mktemp -d)
-          unzip -q "$IPA" -d "$WORK"
+          mkdir -p "$WORK/Payload"
+          cp -R "$APP" "$WORK/Payload/"
           codesign -f -s - --timestamp=none "$WORK/Payload/Runner.app"
           (cd "$WORK" && zip -rqy "$RUNNER_TEMP/RankRocketAI.ipa" Payload)
           echo "ipa=$RUNNER_TEMP/RankRocketAI.ipa" >> "$GITHUB_OUTPUT"
