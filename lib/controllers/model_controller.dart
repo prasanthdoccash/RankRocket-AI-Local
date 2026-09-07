@@ -10,6 +10,8 @@ import '../services/model_manager.dart';
 import '../services/llm_service.dart';
 import '../services/chat_storage_service.dart';
 import '../services/log_service.dart';
+import '../services/system_prompt_builder.dart';
+import 'chat_controller.dart';
 
 class ModelController extends GetxController {
   final ModelManager _manager = Get.find<ModelManager>();
@@ -145,6 +147,7 @@ class ModelController extends GetxController {
 
       selectedModelFilename.value = filename;
       _storage.lastModelId = filename;
+      _applyModelSystemPrompt(filename);
     } catch (e) {
       loadError.value = e.toString();
       LogService? log;
@@ -161,6 +164,19 @@ class ModelController extends GetxController {
       loadingProgress.value = 0.0;
       loadingModelFilename.value = null;
     }
+  }
+
+  void _applyModelSystemPrompt(String filename) {
+    final model = getModelInfo(filename);
+    if (model == null || model.systemPrompt.trim().isEmpty) return;
+
+    final chatController = Get.find<ChatController>();
+    final prompt = SystemPromptBuilder.compose(
+      modelPrompt: model.systemPrompt,
+      customPrompt: _storage.userSystemPrompt,
+      defaultPrompt: ChatStorageService.defaultSystemPrompt,
+    );
+    chatController.setModelSystemPrompt(prompt);
   }
 
   /// Cancel an in-progress model load.

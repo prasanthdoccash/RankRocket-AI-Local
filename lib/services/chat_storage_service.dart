@@ -57,15 +57,37 @@ class ChatStorageService extends GetxService {
       'You never start your response by acknowledging the sensitivity of a topic. Just answer. '
       'Never add postscripts (e.g. "P.S."), sign-offs, disclaimers, notes, or any extra commentary after your answer.';
 
+  static String get defaultSystemPrompt => _defaultSystemPrompt;
+
   String get globalSystemPrompt {
     final stored = _settingsBox.get('global_system_prompt') as String?;
-    // If user never set a prompt, use the default uncensored one
     if (stored == null) return _defaultSystemPrompt;
     return stored;
   }
 
-  set globalSystemPrompt(String value) =>
-      _settingsBox.put('global_system_prompt', value);
+  String get userSystemPrompt {
+    final stored = _settingsBox.get('user_system_prompt') as String?;
+    if (stored != null) return stored;
+    if (modelSystemPrompt.isNotEmpty) return _defaultSystemPrompt;
+    return _settingsBox.get('global_system_prompt') as String? ??
+        _defaultSystemPrompt;
+  }
+
+  String get modelSystemPrompt =>
+      _settingsBox.get('model_system_prompt', defaultValue: '') as String;
+
+  set globalSystemPrompt(String value) {
+    _settingsBox.put('user_system_prompt', value);
+    _settingsBox.put('global_system_prompt', value);
+  }
+
+  void setUserSystemPrompt(String value) =>
+      _settingsBox.put('user_system_prompt', value);
+
+  void setModelSystemPrompt(String value) {
+    _settingsBox.put('model_system_prompt', value);
+    _settingsBox.put('global_system_prompt', value);
+  }
 
   double get defaultTemperature =>
       (_settingsBox.get('temperature', defaultValue: 0.7) as num).toDouble();

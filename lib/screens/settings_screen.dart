@@ -238,10 +238,10 @@ class _SettingsBody extends StatelessWidget {
               Obx(
                 () => TextField(
                   controller:
-                      TextEditingController(text: chatCtrl.systemPrompt.value)
+                      TextEditingController(text: storage.userSystemPrompt)
                         ..selection = TextSelection.fromPosition(
                           TextPosition(
-                            offset: chatCtrl.systemPrompt.value.length,
+                            offset: storage.userSystemPrompt.length,
                           ),
                         ),
                   maxLines: 4,
@@ -268,7 +268,7 @@ class _SettingsBody extends StatelessWidget {
                       borderSide: const BorderSide(color: AppColors.accent),
                     ),
                   ),
-                  onChanged: (v) => chatCtrl.setGlobalSystemPrompt(v),
+                  onChanged: (v) => chatCtrl.setUserSystemPrompt(v),
                 ),
               ),
               const SizedBox(height: 8),

@@ -177,9 +177,20 @@ class ChatController extends GetxController {
     _storage.globalSystemPrompt = prompt;
   }
 
+  void setModelSystemPrompt(String prompt) {
+    systemPrompt.value = prompt;
+    _storage.setModelSystemPrompt(prompt);
+  }
+
+  void setUserSystemPrompt(String prompt) {
+    systemPrompt.value = prompt;
+    _storage.setUserSystemPrompt(prompt);
+  }
+
   /// Clear global system prompt.
   void clearGlobalSystemPrompt() {
     systemPrompt.value = '';
+    _storage.setUserSystemPrompt('');
     _storage.globalSystemPrompt = '';
   }
 
