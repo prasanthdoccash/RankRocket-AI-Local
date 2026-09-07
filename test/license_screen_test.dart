@@ -36,7 +36,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('RR2F9K4Q'), findsOneWidget);
-    expect(find.textContaining('rpfinser24@gmail.com'), findsOneWidget);
+    expect(find.textContaining('rpfinserv24@gmail.com'), findsOneWidget);
     expect(find.widgetWithText(ElevatedButton, 'Activate'), findsOneWidget);
   });
 

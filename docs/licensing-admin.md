@@ -1,4 +1,4 @@
-# RankRocket AI — License Admin Guide
+﻿# RankRocket AI â€” License Admin Guide
 
 Operator documentation for the RankRocket AI licensing system: how the license
 server runs, how to manage devices and keys from the admin panel, how the trial
@@ -12,7 +12,7 @@ server runs, how to manage devices and keys from the admin panel, how the trial
   `Settings.Secure.ANDROID_ID` / iOS Keychain-persisted UUID). On first launch
   the app registers with the server and the server decides the state.
 - After the trial (or a license) expires, the app shows a licensing screen that
-  asks the user to email their **device code** to **rpfinser24@gmail.com** to
+  asks the user to email their **device code** to **rpfinserv24@gmail.com** to
   get a license key.
 - The developer generates **device-bound** license keys from the admin panel.
   A key only works on the one device it was issued for.
@@ -36,15 +36,15 @@ password.
 
 A table of every registered device, newest first, with columns:
 
-- **Code** — the 8-character device code the user sees in the app and emails you.
-- **Platform** — `android` / `ios`.
-- **Model** — device model string.
-- **Version** — the app version that last registered.
-- **Status** — `trial` / `active` / `expired` / `needs_license`.
-- **Expires** — the effective expiry (trial end **or** license expiry),
+- **Code** â€” the 8-character device code the user sees in the app and emails you.
+- **Platform** â€” `android` / `ios`.
+- **Model** â€” device model string.
+- **Version** â€” the app version that last registered.
+- **Status** â€” `trial` / `active` / `expired` / `needs_license`.
+- **Expires** â€” the effective expiry (trial end **or** license expiry),
   whichever applies.
-- **First seen / Last seen** — registration and last-activity dates.
-- **Actions** — per-device **Extend**, **Revoke**, and **Reset trial** buttons.
+- **First seen / Last seen** â€” registration and last-activity dates.
+- **Actions** â€” per-device **Extend**, **Revoke**, and **Reset trial** buttons.
 
 ### Generate a license key
 
@@ -60,12 +60,12 @@ A table of every registered device, newest first, with columns:
 
 ### Extend / Revoke / Reset trial
 
-- **Extend** — adds the given number of days to a device's effective expiry.
+- **Extend** â€” adds the given number of days to a device's effective expiry.
   Days are stacked on top of the later of the current license expiry, trial
   end, or now, so extending always pushes the expiry forward.
-- **Revoke** — clears the device's license (`license_expires_at = NULL`). The
+- **Revoke** â€” clears the device's license (`license_expires_at = NULL`). The
   device is forced back to `needs_license` (or its trial, if still running).
-- **Reset trial** — clears `trial_used` and `trial_started_at`. Note that this
+- **Reset trial** â€” clears `trial_used` and `trial_started_at`. Note that this
   does **not** grant a fresh trial on reinstall: `register` grants trials only
   on first registration, so the device returns to the `needs_license` state.
   Use only for support edge cases.
@@ -76,7 +76,7 @@ A table of every registered device, newest first, with columns:
   granted server-side on registration.
 - Because the trial is tied to a **stable device ID**, uninstalling and
   reinstalling the app does **not** reset the trial. The server still sees the
-  device already used its trial and refuses a new one — the app goes straight
+  device already used its trial and refuses a new one â€” the app goes straight
   to the license screen.
 - First launch requires a working server connection (the trial cannot start
   offline).
@@ -107,7 +107,7 @@ flutter run --dart-define=LICENSE_SERVER_URL=http://<LAN-IP>:8900
 
 > `LICENSE_ADMIN_PASSWORD` and `LICENSE_SECRET_KEY` are required for real use.
 > If `LICENSE_SECRET_KEY` is unset, the server generates a **random session key
-> at startup** — sessions won't survive a restart, fine for dev only.
+> at startup** â€” sessions won't survive a restart, fine for dev only.
 
 ## Deploying to the VPS
 
@@ -127,7 +127,7 @@ flutter run --dart-define=LICENSE_SERVER_URL=http://<LAN-IP>:8900
    restarts the systemd unit `license.service` and prints its active state.
 3. The systemd unit runs gunicorn on `127.0.0.1:8900`, loading
    `/opt/license_server/.env` via `EnvironmentFile`.
-4. nginx serves `https://ai.rankrocket.online` → `127.0.0.1:8900` (see
+4. nginx serves `https://ai.rankrocket.online` â†’ `127.0.0.1:8900` (see
    `license_server/nginx-ai.conf.example`); TLS via certbot:
    ```bash
    sudo cp nginx-ai.conf.example /etc/nginx/sites-available/ai.rankrocket.online
@@ -141,7 +141,7 @@ flutter run --dart-define=LICENSE_SERVER_URL=http://<LAN-IP>:8900
 
 - `LICENSE_ADMIN_PASSWORD` and `LICENSE_SECRET_KEY` are required in `.env`.
 - If the secret is unset, the server generates a random session key at startup
-  (sessions reset on restart — dev only).
+  (sessions reset on restart â€” dev only).
 - License keys are generated with Python's `secrets`, are device-bound, and are
   shown once. Activating a key already bound to another device is rejected.
 - `/api/v1/activate` is throttled per-IP (~10 attempts / minute).
@@ -157,17 +157,17 @@ flutter run --dart-define=LICENSE_SERVER_URL=http://<LAN-IP>:8900
    $env:LICENSE_SECRET_KEY = "test-secret"
    cd license_server; python app.py
    ```
-2. Get your PC's LAN IP (e.g. `ipconfig` → IPv4) and run the app on an emulator:
+2. Get your PC's LAN IP (e.g. `ipconfig` â†’ IPv4) and run the app on an emulator:
    ```bash
    flutter run --dart-define=LICENSE_SERVER_URL=http://<LAN-IP>:8900
    ```
-3. On first launch the app registers → **trial** starts (1 day). Verify the
+3. On first launch the app registers â†’ **trial** starts (1 day). Verify the
    "Trial: N days left" banner and the device code.
 4. Set `LICENSE_TRIAL_DAYS` back to `0` (or edit the device's expiry) and relaunch
-   to force **expiry** → the licensing screen appears.
+   to force **expiry** â†’ the licensing screen appears.
 5. Open `http://localhost:8900/admin`, log in, find the device, and **Generate
    key** using its device code.
-6. Type the key into the app and tap **Activate** → status becomes **active** and
+6. Type the key into the app and tap **Activate** â†’ status becomes **active** and
    the app unlocks.
-7. (Optional) Test reinstall policy: uninstall/reinstall, same device ID → the
+7. (Optional) Test reinstall policy: uninstall/reinstall, same device ID â†’ the
    app should immediately show the licensing screen with no new trial.

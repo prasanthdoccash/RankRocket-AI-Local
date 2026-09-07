@@ -21,7 +21,7 @@ class LicenseTrialBanner extends GetView<LicenseService> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         color: AppColors.orange.withValues(alpha: 0.12),
         child: Text(
-          'Trial: $days day${days == 1 ? '' : 's'} left — email rpfinser24@gmail.com for a license key',
+          'Trial: $days day${days == 1 ? '' : 's'} left — email rpfinserv24@gmail.com for a license key',
           style: const TextStyle(fontSize: 12, color: AppColors.orange),
           textAlign: TextAlign.center,
         ),

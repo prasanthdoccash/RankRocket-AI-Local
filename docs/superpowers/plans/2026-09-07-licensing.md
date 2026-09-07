@@ -1,4 +1,4 @@
-# Licensing System Implementation Plan
+﻿# Licensing System Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -8,16 +8,16 @@
 
 **Tech Stack:** Flask, SQLite, gunicorn/waitress (server); Flutter/GetX/Hive/`http` (client); Swift Security framework + Kotlin Android SDK (platform channels).
 
-**Spec:** `docs/superpowers/specs/2026-09-07-licensing-design.md` — the plan argues from the spec; executors read both.
+**Spec:** `docs/superpowers/specs/2026-09-07-licensing-design.md` â€” the plan argues from the spec; executors read both.
 
 ## Global Constraints
 
 - Trial duration = **30 days** from first launch, granted server-side (`LICENSE_TRIAL_DAYS=30`).
-- **Reinstall grants no new trial** — enforced by stable device ID (`ANDROID_ID` / iOS Keychain UUID) + server `trial_used` flag.
+- **Reinstall grants no new trial** â€” enforced by stable device ID (`ANDROID_ID` / iOS Keychain UUID) + server `trial_used` flag.
 - License key format: `RR-XXXX-XXXX-XXXX` (uppercase, unambiguous alphabet, `secrets`-generated), **device-bound** (rejects use on a second device).
 - Device code format: 8-char uppercase alphanumeric (e.g. `RR2F9K4Q`), generated at registration, shown in-app, typed into admin to issue keys.
 - Server URL: `https://ai.rankrocket.online` (client default via `--dart-define=LICENSE_SERVER_URL` override).
-- Support email copy: **rpfinser24@gmail.com** — exact string used in the app UI.
+- Support email copy: **rpfinserv24@gmail.com** â€” exact string used in the app UI.
 - First launch requires a server connection (trial cannot start offline).
 - No secrets committed: `.env` gitignored, `.env.example` committed.
 - The Flutter shared code is the single implementation for both Android and iOS.
@@ -25,7 +25,7 @@
 
 ---
 
-### Task 1: License server — scaffold, DB, register + status endpoints (TDD)
+### Task 1: License server â€” scaffold, DB, register + status endpoints (TDD)
 
 **Files:**
 - Create: `license_server/requirements.txt`
@@ -112,7 +112,7 @@ def test_register_same_device_reinstall_no_new_trial(client):
     first = _register(client, "dev-222").get_json()
     first_expiry = first["expires_at"]
 
-    # Re-register (reinstall) — trial must NOT restart; same expiry.
+    # Re-register (reinstall) â€” trial must NOT restart; same expiry.
     again = _register(client, "dev-222").get_json()
     assert again["status"] == "trial"
     assert again["expires_at"] == first_expiry
@@ -130,7 +130,7 @@ def test_register_updates_last_seen_and_version(client):
     assert res.get_json()["status"] == "trial"
 ```
 
-- [ ] **Step 3: Run tests — verify they fail**
+- [ ] **Step 3: Run tests â€” verify they fail**
 
 Run: `python -m pytest license_server/tests/test_api.py -v`
 Expected: FAIL (module `app` not importable / no `app` object).
@@ -335,7 +335,7 @@ if __name__ == "__main__":
         app.run(debug=True, port=8900)
 ```
 
-- [ ] **Step 5: Run tests — verify they pass**
+- [ ] **Step 5: Run tests â€” verify they pass**
 
 Run: `python -m pytest license_server/tests/test_api.py -v`
 Expected: PASS (4 tests).
@@ -349,14 +349,14 @@ git commit -m "feat(license): license server scaffold with register/status endpo
 
 ---
 
-### Task 2: License server — activate endpoint + key generation (TDD)
+### Task 2: License server â€” activate endpoint + key generation (TDD)
 
 **Files:**
 - Modify: `license_server/app.py` (add `_make_license_key`, `_throttle`, `POST /api/v1/activate`)
 - Modify: `license_server/tests/test_api.py`
 
 **Interfaces:**
-- Produces: `POST /api/v1/activate` body `{device_id, license_key}` →
+- Produces: `POST /api/v1/activate` body `{device_id, license_key}` â†’
   - 200 `{status:"active", expires_at, days_left}`
   - 404 `{error:"Invalid license key"}`
   - 403 `{error:"This license key is already used on another device"}`
@@ -422,7 +422,7 @@ def test_activate_makes_device_active(client):
     assert st["status"] == "active"
 ```
 
-- [ ] **Step 2: Run tests — verify they fail**
+- [ ] **Step 2: Run tests â€” verify they fail**
 
 Run: `python -m pytest license_server/tests/test_api.py -v`
 Expected: FAIL (`/api/v1/activate` returns 404).
@@ -495,7 +495,7 @@ def activate():
     )
 ```
 
-- [ ] **Step 4: Run tests — verify they pass**
+- [ ] **Step 4: Run tests â€” verify they pass**
 
 Run: `python -m pytest license_server/tests/test_api.py -v`
 Expected: PASS (8 tests). Note: `_activate` key is uppercased server-side; tests already use mixed case for the unbound-key test to prove normalization.
@@ -509,7 +509,7 @@ git commit -m "feat(license): activate endpoint with device-bound key validation
 
 ---
 
-### Task 3: License server — admin panel (TDD)
+### Task 3: License server â€” admin panel (TDD)
 
 **Files:**
 - Modify: `license_server/app.py` (add session auth, admin routes, inline HTML, `generate-key`, `extend`, `revoke`, `reset-trial`)
@@ -519,10 +519,10 @@ git commit -m "feat(license): activate endpoint with device-bound key validation
 - Produces: admin password from `LICENSE_ADMIN_PASSWORD` (default `change-me`); routes:
   - `GET/POST /admin/login`, `GET /admin/logout`
   - `GET /admin` (dashboard, `@login_required`)
-  - `POST /admin/generate-key` `{device_code, duration_days, notes}` → one-time key display page
-  - `POST /admin/device/<id>/extend` `{days}` → adds days to `license_expires_at`
-  - `POST /admin/device/<id>/revoke` → sets `license_expires_at = NULL`
-  - `POST /admin/device/<id>/reset-trial` → sets `trial_used = 0`
+  - `POST /admin/generate-key` `{device_code, duration_days, notes}` â†’ one-time key display page
+  - `POST /admin/device/<id>/extend` `{days}` â†’ adds days to `license_expires_at`
+  - `POST /admin/device/<id>/revoke` â†’ sets `license_expires_at = NULL`
+  - `POST /admin/device/<id>/reset-trial` â†’ sets `trial_used = 0`
 
 - [ ] **Step 1: Write the failing tests** (append to `test_api.py`)
 
@@ -615,7 +615,7 @@ def _device_id_by_code(client, registered_device_id):
     return row[0]
 ```
 
-- [ ] **Step 2: Run tests — verify they fail**
+- [ ] **Step 2: Run tests â€” verify they fail**
 
 Run: `python -m pytest license_server/tests/test_api.py -v`
 Expected: FAIL (`/admin/*` return 404).
@@ -821,7 +821,7 @@ def admin_reset_trial(device_row_id):
     return redirect(url_for("admin_dashboard"))
 ```
 
-- [ ] **Step 4: Run tests — verify they pass**
+- [ ] **Step 4: Run tests â€” verify they pass**
 
 Run: `python -m pytest license_server/tests/test_api.py -v`
 Expected: PASS (14 tests).
@@ -835,7 +835,7 @@ git commit -m "feat(license): admin panel with key generation, extend, revoke, r
 
 ---
 
-### Task 4: License server — deployment files + local run docs
+### Task 4: License server â€” deployment files + local run docs
 
 **Files:**
 - Create: `license_server/deploy.sh`
@@ -844,7 +844,7 @@ git commit -m "feat(license): admin panel with key generation, extend, revoke, r
 - Create: `license_server/README.md`
 
 **Interfaces:**
-- Produces: deployable artifacts + instructions for the Ganga VPS (`/opt/license_server`, systemd `license.service`, nginx `ai.rankrocket.online` → `127.0.0.1:8900`).
+- Produces: deployable artifacts + instructions for the Ganga VPS (`/opt/license_server`, systemd `license.service`, nginx `ai.rankrocket.online` â†’ `127.0.0.1:8900`).
 
 - [ ] **Step 1: Write `deploy.sh`**
 
@@ -917,7 +917,7 @@ git commit -m "chore(license): deployment files and run docs"
 
 ---
 
-### Task 5: Flutter — config + license state model (TDD)
+### Task 5: Flutter â€” config + license state model (TDD)
 
 **Files:**
 - Create: `lib/config.dart`
@@ -944,7 +944,7 @@ class AppConfig {
 }
 ```
 
-- [ ] **Step 2: Write the failing test** — `test/license_state_test.dart`
+- [ ] **Step 2: Write the failing test** â€” `test/license_state_test.dart`
 
 ```dart
 import 'package:flutter_test/flutter_test.dart';
@@ -979,7 +979,7 @@ void main() {
 }
 ```
 
-- [ ] **Step 3: Run test — verify it fails**
+- [ ] **Step 3: Run test â€” verify it fails**
 
 Run: `flutter test test/license_state_test.dart`
 Expected: FAIL (`license_state.dart` not found).
@@ -1035,7 +1035,7 @@ class LicenseInfo {
 }
 ```
 
-- [ ] **Step 5: Run test — verify it passes**
+- [ ] **Step 5: Run test â€” verify it passes**
 
 Run: `flutter test test/license_state_test.dart`
 Expected: PASS (3 tests).
@@ -1049,7 +1049,7 @@ git commit -m "feat(license): client config and license state model"
 
 ---
 
-### Task 6: Flutter — device info service + platform channels (TDD)
+### Task 6: Flutter â€” device info service + platform channels (TDD)
 
 **Files:**
 - Modify: `lib/services/device_info_service.dart`
@@ -1063,9 +1063,9 @@ git commit -m "feat(license): client config and license state model"
   - `Future<String?> getDeviceModel()`
   - `Future<String?> getOsVersion()`
   - `Future<String?> getAppVersion()`
-  - `String getPlatform()` → `android` | `ios` | `desktop` | `web`
+  - `String getPlatform()` â†’ `android` | `ios` | `desktop` | `web`
 
-- [ ] **Step 1: Write the failing test** — `test/device_info_service_test.dart`
+- [ ] **Step 1: Write the failing test** â€” `test/device_info_service_test.dart`
 
 ```dart
 import 'package:flutter/services.dart';
@@ -1097,12 +1097,12 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Run test — verify it fails**
+- [ ] **Step 2: Run test â€” verify it fails**
 
 Run: `flutter test test/device_info_service_test.dart`
 Expected: FAIL (methods missing on `DeviceInfoService`).
 
-- [ ] **Step 3: Implement the Dart service** — replace `lib/services/device_info_service.dart`
+- [ ] **Step 3: Implement the Dart service** â€” replace `lib/services/device_info_service.dart`
 
 ```dart
 import 'package:flutter/foundation.dart';
@@ -1171,7 +1171,7 @@ class DeviceInfoService {
 }
 ```
 
-- [ ] **Step 4: Implement the Android channel** — replace `android/app/src/main/kotlin/com/portableai/portable_ai_flutter/MainActivity.kt`
+- [ ] **Step 4: Implement the Android channel** â€” replace `android/app/src/main/kotlin/com/portableai/portable_ai_flutter/MainActivity.kt`
 
 ```kotlin
 package com.portableai.portable_ai_flutter
@@ -1229,7 +1229,7 @@ class MainActivity : FlutterActivity() {
 }
 ```
 
-- [ ] **Step 5: Implement the iOS channel** — replace `ios/Runner/AppDelegate.swift`
+- [ ] **Step 5: Implement the iOS channel** â€” replace `ios/Runner/AppDelegate.swift`
 
 ```swift
 import Flutter
@@ -1331,7 +1331,7 @@ import Security
 
 > If the iOS build ever complains about the implicit-engine API, use the classic pattern instead: implement `application(_:didFinishLaunchingWithOptions:)` returning `GeneratedPluginRegistrant.register(with: self)` and create the channel with `(window?.rootViewController as! FlutterViewController).binaryMessenger`. The Keychain logic is identical.
 
-- [ ] **Step 6: Run the Dart test — verify it passes**
+- [ ] **Step 6: Run the Dart test â€” verify it passes**
 
 Run: `flutter test test/device_info_service_test.dart`
 Expected: PASS.
@@ -1345,7 +1345,7 @@ git commit -m "feat(license): stable device ID via platform channels (Android + 
 
 ---
 
-### Task 7: Flutter — LicenseService (TDD)
+### Task 7: Flutter â€” LicenseService (TDD)
 
 **Files:**
 - Create: `lib/services/license_service.dart`
@@ -1363,7 +1363,7 @@ git commit -m "feat(license): stable device ID via platform channels (Android + 
     - `Future<void> activate(String key)`
   - Constructor takes `{http.Client? client}` for tests.
 
-- [ ] **Step 1: Write the failing test** — `test/license_service_test.dart`
+- [ ] **Step 1: Write the failing test** â€” `test/license_service_test.dart`
 
 ```dart
 import 'dart:convert';
@@ -1452,7 +1452,7 @@ void main() {
 
 > Hive needs a valid init path. `Hive.initFlutter` requires `path_provider`; in tests use `getTemporaryDirectory()`. If `Hive.initFlutter` is not available in tests, use `Hive.init('${dir.path}/hive_test')` and call `Hive.init` directly.
 
-- [ ] **Step 2: Run test — verify it fails**
+- [ ] **Step 2: Run test â€” verify it fails**
 
 Run: `flutter test test/license_service_test.dart`
 Expected: FAIL (`license_service.dart` not found).
@@ -1525,7 +1525,7 @@ class LicenseService extends GetxService {
         return;
       }
     } catch (_) {
-      // Server unreachable — fall back to cached state below.
+      // Server unreachable â€” fall back to cached state below.
     }
 
     _loadFromCache(box);
@@ -1613,7 +1613,7 @@ class LicenseService extends GetxService {
 }
 ```
 
-- [ ] **Step 4: Run test — verify it passes**
+- [ ] **Step 4: Run test â€” verify it passes**
 
 Run: `flutter test test/license_service_test.dart`
 Expected: PASS (4 tests). If a Hive test-path issue appears, adjust the `setUp` to `Hive.init('${dir.path}/hive_test')` instead of `Hive.initFlutter`.
@@ -1627,7 +1627,7 @@ git commit -m "feat(license): client license service with cache fallback"
 
 ---
 
-### Task 8: Flutter — LicenseScreen + trial banner (TDD)
+### Task 8: Flutter â€” LicenseScreen + trial banner (TDD)
 
 **Files:**
 - Create: `lib/screens/license_screen.dart`
@@ -1635,12 +1635,12 @@ git commit -m "feat(license): client license service with cache fallback"
 - Create: `test/license_screen_test.dart`
 
 **Interfaces:**
-- Consumes: `LicenseService` (GetX), `LicenseStatus`, `AppColors`/theme helpers (`context.bg`, `context.text`, `context.textM`, `context.textD`, `context.bgPanel`, `context.border`, `AppColors.accent`, `AppColors.green`, `AppColors.red`, `AppColors.orange` — verify each in `lib/theme/app_theme.dart` before use; fall back to `Theme.of(context).colorScheme` if a helper is missing).
+- Consumes: `LicenseService` (GetX), `LicenseStatus`, `AppColors`/theme helpers (`context.bg`, `context.text`, `context.textM`, `context.textD`, `context.bgPanel`, `context.border`, `AppColors.accent`, `AppColors.green`, `AppColors.red`, `AppColors.orange` â€” verify each in `lib/theme/app_theme.dart` before use; fall back to `Theme.of(context).colorScheme` if a helper is missing).
 - Produces:
   - `class LicenseScreen extends GetView<LicenseService>`
-  - `class LicenseTrialBanner extends StatelessWidget` — shows "Trial: N days left" only when status is `trial`.
+  - `class LicenseTrialBanner extends StatelessWidget` â€” shows "Trial: N days left" only when status is `trial`.
 
-- [ ] **Step 1: Write the failing widget test** — `test/license_screen_test.dart`
+- [ ] **Step 1: Write the failing widget test** â€” `test/license_screen_test.dart`
 
 ```dart
 import 'package:flutter/material.dart';
@@ -1679,7 +1679,7 @@ void main() {
     await tester.pump();
 
     expect(find.text('RR2F9K4Q'), findsOneWidget);
-    expect(find.textContaining('rpfinser24@gmail.com'), findsOneWidget);
+    expect(find.textContaining('rpfinserv24@gmail.com'), findsOneWidget);
     expect(find.widgetWithText(ElevatedButton, 'Activate'), findsOneWidget);
   });
 
@@ -1696,7 +1696,7 @@ void main() {
 }
 ```
 
-- [ ] **Step 2: Run test — verify it fails**
+- [ ] **Step 2: Run test â€” verify it fails**
 
 Run: `flutter test test/license_screen_test.dart`
 Expected: FAIL (`license_screen.dart` not found).
@@ -1726,7 +1726,7 @@ class LicenseTrialBanner extends GetView<LicenseService> {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         color: AppColors.orange.withValues(alpha: 0.12),
         child: Text(
-          'Trial: $days day${days == 1 ? '' : 's'} left — email rpfinser24@gmail.com for a license key',
+          'Trial: $days day${days == 1 ? '' : 's'} left â€” email rpfinserv24@gmail.com for a license key',
           style: const TextStyle(fontSize: 12, color: AppColors.orange),
           textAlign: TextAlign.center,
         ),
@@ -1751,7 +1751,7 @@ import '../theme/app_colors.dart';
 class LicenseScreen extends GetView<LicenseService> {
   const LicenseScreen({super.key});
 
-  static const String supportEmail = 'rpfinser24@gmail.com';
+  static const String supportEmail = 'rpfinserv24@gmail.com';
   final _keyController = TextEditingController();
 
   @override
@@ -1895,7 +1895,7 @@ class LicenseScreen extends GetView<LicenseService> {
 }
 ```
 
-- [ ] **Step 5: Run tests — verify they pass**
+- [ ] **Step 5: Run tests â€” verify they pass**
 
 Run: `flutter test test/license_screen_test.dart`
 Expected: PASS (2 tests). If a theme helper (`context.bg` etc.) is undefined, read `lib/theme/app_theme.dart` and swap in `Theme.of(context).colorScheme.*` equivalents.
@@ -1909,7 +1909,7 @@ git commit -m "feat(license): licensing screen and trial banner"
 
 ---
 
-### Task 9: Flutter — gate integration (splash, routes, home banner)
+### Task 9: Flutter â€” gate integration (splash, routes, home banner)
 
 **Files:**
 - Modify: `lib/bindings/app_bindings.dart`
@@ -1921,7 +1921,7 @@ git commit -m "feat(license): licensing screen and trial banner"
 - Consumes: `LicenseService`, `LicenseStatus`, `LicenseTrialBanner`, `LicenseScreen`.
 - Produces: new route `AppRoutes.license = '/license'`; app navigates to home (licensed/trial) or license screen (expired/needsLicense/offline-no-cache).
 
-- [ ] **Step 1: Register the service** — `lib/bindings/app_bindings.dart`
+- [ ] **Step 1: Register the service** â€” `lib/bindings/app_bindings.dart`
 
 Add import `../services/license_service.dart;` and, after the other lazy service puts:
 
@@ -1929,7 +1929,7 @@ Add import `../services/license_service.dart;` and, after the other lazy service
 Get.put(LicenseService()); // eager: splash + gate depend on it
 ```
 
-- [ ] **Step 2: Open the license Hive box** — `lib/main.dart`
+- [ ] **Step 2: Open the license Hive box** â€” `lib/main.dart`
 
 Add import `services/license_service.dart;` (already imports from `models/`, `theme/`, etc.). After `await Hive.openBox('models_meta');` insert:
 
@@ -1937,7 +1937,7 @@ Add import `services/license_service.dart;` (already imports from `models/`, `th
 await Hive.openBox(LicenseService.boxName);
 ```
 
-- [ ] **Step 3: Add the route** — `lib/routes/app_routes.dart`
+- [ ] **Step 3: Add the route** â€” `lib/routes/app_routes.dart`
 
 Add import `../screens/license_screen.dart;`, constant `static const license = '/license';`, and page:
 
@@ -1945,7 +1945,7 @@ Add import `../screens/license_screen.dart;`, constant `static const license = '
 GetPage(name: license, page: () => const LicenseScreen()),
 ```
 
-- [ ] **Step 4: Gate in splash** — `lib/screens/splash_screen.dart`
+- [ ] **Step 4: Gate in splash** â€” `lib/screens/splash_screen.dart`
 
 Add import `../models/license_state.dart;` and `../services/license_service.dart;`. In `_initApp()`, after the `WakelockService` init block (before the battery-optimization prompt) insert:
 
@@ -1967,7 +1967,7 @@ if (license.status.value == LicenseStatus.trial ||
 }
 ```
 
-- [ ] **Step 5: Insert the trial banner** — `lib/screens/home_screen.dart`
+- [ ] **Step 5: Insert the trial banner** â€” `lib/screens/home_screen.dart`
 
 Add import `../widgets/license_trial_banner.dart;`. Find the mobile `body:` block and change it exactly as follows.
 
@@ -2052,11 +2052,11 @@ Expected: analyzer clean of new issues; all tests green.
 
 - [ ] **Step 2: Write `docs/licensing-admin.md`**
 
-Cover: where the server runs (`ai.rankrocket.online`), the `/admin` login, the dashboard columns, generating a key for a device code, extending/revoking/reset-trial, how the trial+reinstall policy works (stable device ID), how to run locally with waitress + `--dart-define=LICENSE_SERVER_URL=http://<LAN-IP>:8900`, and the manual E2E test script (register → short trial via `LICENSE_TRIAL_DAYS=1` → expiry → generate key → activate).
+Cover: where the server runs (`ai.rankrocket.online`), the `/admin` login, the dashboard columns, generating a key for a device code, extending/revoking/reset-trial, how the trial+reinstall policy works (stable device ID), how to run locally with waitress + `--dart-define=LICENSE_SERVER_URL=http://<LAN-IP>:8900`, and the manual E2E test script (register â†’ short trial via `LICENSE_TRIAL_DAYS=1` â†’ expiry â†’ generate key â†’ activate).
 
 - [ ] **Step 3: Update `docs/ios-build.md`**
 
-Add a "License" note under First run: *"The app checks its license online on first launch (ai.rankrocket.online). It works free for 30 days, then asks for a license key from rpfinser24@gmail.com."*
+Add a "License" note under First run: *"The app checks its license online on first launch (ai.rankrocket.online). It works free for 30 days, then asks for a license key from rpfinserv24@gmail.com."*
 
 - [ ] **Step 4: Commit**
 
@@ -2069,6 +2069,6 @@ git commit -m "docs(license): admin guide and iOS install notes"
 
 ## Self-Review Summary
 
-- **Spec coverage:** every section in the spec maps to a task — server API (1–2), admin (3), deployment (4), client model/config (5), platform channels (6), client service (7), screens + gate (8–9), docs/tests (10). Non-goals respected (no in-app payment, no subscriptions).
+- **Spec coverage:** every section in the spec maps to a task â€” server API (1â€“2), admin (3), deployment (4), client model/config (5), platform channels (6), client service (7), screens + gate (8â€“9), docs/tests (10). Non-goals respected (no in-app payment, no subscriptions).
 - **Type consistency:** `LicenseStatus`/`LicenseInfo` names are identical across Tasks 5, 7, 8, 9; the API response shape defined in Task 1 is what Tasks 5 and 7 parse; `_device_state` status strings (`trial/active/expired/needs_license/unknown`) match the client's `switch` in Task 5.
 - **Placeholder scan:** no TBDs; every code step contains full implementations.

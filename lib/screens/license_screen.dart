@@ -11,7 +11,7 @@ import '../theme/app_colors.dart';
 class LicenseScreen extends GetView<LicenseService> {
   const LicenseScreen({super.key});
 
-  static const String supportEmail = 'rpfinser24@gmail.com';
+  static const String supportEmail = 'rpfinserv24@gmail.com';
 
   @override
   Widget build(BuildContext context) {

@@ -111,7 +111,7 @@ class _SettingsBody extends StatelessWidget {
                                 color: context.text, fontSize: 14),
                           ),
                           subtitle: Text(
-                            'Share this code with rpfinser24@gmail.com if you need help or a license key.',
+                            'Share this code with rpfinserv24@gmail.com if you need help or a license key.',
                             style: TextStyle(color: context.textD, fontSize: 12),
                           ),
                           trailing: code.isEmpty
