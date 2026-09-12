@@ -149,13 +149,10 @@ class _SettingsBody extends StatelessWidget {
                               ),
                             ),
                           ),
-                        // ── Expiry date & renewal alert ──
-                        if (code.isNotEmpty) ...[
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 4),
-                            child: _buildExpiryInfo(context, license),
-                          ),
-                        ],
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                          child: _buildExpiryInfo(context, license),
+                        ),
                       ],
                     );
                   },
@@ -243,15 +240,15 @@ class _SettingsBody extends StatelessWidget {
                 style: TextStyle(fontSize: 12, color: context.textD),
               ),
               const SizedBox(height: 12),
-              Obx(
+                  Obx(
                 () => TextField(
                   controller:
-                      TextEditingController(text: storage.userSystemPrompt)
-                        ..selection = TextSelection.fromPosition(
-                          TextPosition(
-                            offset: storage.userSystemPrompt.length,
-                          ),
+                    TextEditingController(text: chatCtrl.systemPrompt.value)
+                      ..selection = TextSelection.fromPosition(
+                        TextPosition(
+                          offset: chatCtrl.systemPrompt.value.length,
                         ),
+                      ),
                   maxLines: 4,
                   style: TextStyle(
                     fontSize: 14,
@@ -889,7 +886,11 @@ class _SettingsBody extends StatelessWidget {
         border: Border.all(color: context.border),
         borderRadius: BorderRadius.circular(12),
       ),
-      child: child,
+      child: Material(
+        color: context.bgPanel,
+        borderRadius: BorderRadius.circular(12),
+        child: child,
+      ),
     );
   }
 

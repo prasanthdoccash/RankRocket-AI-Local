@@ -90,16 +90,19 @@ class ChatStorageService extends GetxService {
   }
 
   double get defaultTemperature =>
-      (_settingsBox.get('temperature', defaultValue: 0.7) as num).toDouble();
+      ((_settingsBox.get('temperature', defaultValue: 0.7) as num)
+              .toDouble())
+          .clamp(0.0, 2.0);
 
   set defaultTemperature(double value) =>
-      _settingsBox.put('temperature', value);
+      _settingsBox.put('temperature', value.clamp(0.0, 2.0));
 
   int get defaultMaxTokens =>
-      (_settingsBox.get('max_tokens', defaultValue: 1024) as num).toInt();
+      ((_settingsBox.get('max_tokens', defaultValue: 1024) as num).toInt())
+          .clamp(64, 4096);
 
   set defaultMaxTokens(int value) =>
-      _settingsBox.put('max_tokens', value);
+      _settingsBox.put('max_tokens', value.clamp(64, 4096));
 
   int get contextSize =>
       (_settingsBox.get('context_size', defaultValue: 4096) as num).toInt();
