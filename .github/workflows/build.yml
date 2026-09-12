@@ -20,11 +20,12 @@ jobs:
       - run: flutter pub get
 
       - run: flutter build apk --release
+      - run: mv build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/RankRocket AI.apk"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: android-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
+          name: RankRocket AI.apk
+          path: build/app/outputs/flutter-apk/RankRocket AI.apk
 
   build-ios:
     name: Build iOS (no codesign)
