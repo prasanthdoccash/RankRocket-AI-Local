@@ -19,8 +19,27 @@ jobs:
 
       - run: flutter pub get
 
-      - run: flutter build apk --release
+      - name: Set release version
+        id: release
+        shell: bash
+        run: |
+          VERSION="1.1.${GITHUB_RUN_NUMBER}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build_number=$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - run: flutter build apk --release --build-name "${{ steps.release.outputs.version }}" --build-number "${{ steps.release.outputs.build_number }}"
       - run: mv build/app/outputs/flutter-apk/app-release.apk "build/app/outputs/flutter-apk/RankRocket AI.apk"
+
+      - name: Register generated release
+        if: ${{ env.LICENSE_RELEASE_TOKEN != '' }}
+        env:
+          LICENSE_RELEASE_TOKEN: ${{ secrets.LICENSE_RELEASE_TOKEN }}
+        shell: bash
+        run: |
+          curl --fail-with-body -X POST "${LICENSE_SERVER_URL:-https://ai.rankrocket.online}/api/v1/releases" \
+            -H "Authorization: Bearer $LICENSE_RELEASE_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"version":"${{ steps.release.outputs.version }}","build_number":"${{ steps.release.outputs.build_number }}","platform":"android","commit":"${GITHUB_SHA}","workflow_run":"${GITHUB_RUN_ID}"}'
 
       - uses: actions/upload-artifact@v4
         with:
@@ -40,7 +59,26 @@ jobs:
 
       - run: flutter pub get
 
-      - run: flutter build ios --no-codesign
+      - name: Set release version
+        id: release
+        shell: bash
+        run: |
+          VERSION="1.1.${GITHUB_RUN_NUMBER}"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "build_number=$GITHUB_RUN_NUMBER" >> "$GITHUB_OUTPUT"
+
+      - run: flutter build ios --no-codesign --build-name "${{ steps.release.outputs.version }}" --build-number "${{ steps.release.outputs.build_number }}"
+
+      - name: Register generated release
+        if: ${{ env.LICENSE_RELEASE_TOKEN != '' }}
+        env:
+          LICENSE_RELEASE_TOKEN: ${{ secrets.LICENSE_RELEASE_TOKEN }}
+        shell: bash
+        run: |
+          curl --fail-with-body -X POST "${LICENSE_SERVER_URL:-https://ai.rankrocket.online}/api/v1/releases" \
+            -H "Authorization: Bearer $LICENSE_RELEASE_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"version":"${{ steps.release.outputs.version }}","build_number":"${{ steps.release.outputs.build_number }}","platform":"ios","commit":"${GITHUB_SHA}","workflow_run":"${GITHUB_RUN_ID}"}'
 
       - uses: actions/upload-artifact@v4
         with:

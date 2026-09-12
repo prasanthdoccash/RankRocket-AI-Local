@@ -25,6 +25,59 @@ def _register(client, device_id, **extra):
     return client.post("/api/v1/register", json=body)
 
 
+def test_google_play_verify_requires_server_credentials(client, monkeypatch):
+    _register(client, "dev-play")
+    monkeypatch.setattr("app.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON", None)
+    res = client.post(
+        "/api/v1/google-play/verify",
+        json={
+            "device_id": "dev-play",
+            "product_id": "rankrocket_monthly",
+            "purchase_token": "token-123",
+        },
+    )
+    assert res.status_code == 503
+    assert "not configured" in res.get_json()["error"]
+
+
+def test_google_play_verify_rejects_unknown_product(client):
+    _register(client, "dev-unknown-product")
+    res = client.post(
+        "/api/v1/google-play/verify",
+        json={
+            "device_id": "dev-unknown-product",
+            "product_id": "rankrocket_weekly",
+            "purchase_token": "token-123",
+        },
+    )
+    assert res.status_code == 400
+    assert "Unknown" in res.get_json()["error"]
+
+
+def test_release_registration_requires_token(client, monkeypatch):
+    monkeypatch.setattr("app.RELEASE_TOKEN", "release-secret")
+    payload = {
+        "version": "1.1.7",
+        "build_number": "7",
+        "platform": "android",
+        "commit": "abc123",
+        "workflow_run": "77",
+    }
+    assert client.post("/api/v1/releases", json=payload).status_code == 401
+    res = client.post(
+        "/api/v1/releases",
+        json=payload,
+        headers={"Authorization": "Bearer release-secret"},
+    )
+    assert res.status_code == 200
+    assert res.get_json()["version"] == "1.1.7"
+    with client.session_transaction() as session:
+        session["admin"] = True
+    page = client.get("/admin")
+    assert b"1.1.7" in page.data
+    assert b"abc123" in page.data
+
+
 def test_register_new_device_grants_trial(client):
     res = _register(client, "dev-111")
     assert res.status_code == 200
@@ -146,6 +199,18 @@ def test_admin_generate_key_and_activate(client):
     assert key.encode() in res.data
     act = client.post("/api/v1/activate", json={"device_id": "dev-555", "license_key": key})
     assert act.status_code == 200
+
+
+def test_admin_dashboard_shows_installed_and_generated_versions(client, monkeypatch):
+    monkeypatch.setattr("app.CURRENT_APP_VERSION", "1.1.0")
+    _register(client, "dev-version", app_version="1.0.0")
+    with client.session_transaction() as session:
+        session["admin"] = True
+    page = client.get("/admin")
+    assert b"Current generated version:" in page.data
+    assert b">1.1.0</b>" in page.data
+    assert b"1.0.0" in page.data
+    assert b"Update available (1.1.0)" in page.data
 
 
 def test_admin_dashboard_escapes_device_fields(client):

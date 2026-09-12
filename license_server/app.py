@@ -1,4 +1,5 @@
 import datetime
+import json
 import hmac
 import html
 import os
@@ -20,6 +21,16 @@ from flask import (
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TRIAL_DAYS = int(os.environ.get("LICENSE_TRIAL_DAYS", "30"))
+CURRENT_APP_VERSION = os.environ.get("LICENSE_CURRENT_APP_VERSION", "1.1.0")
+RELEASE_TOKEN = os.environ.get("LICENSE_RELEASE_TOKEN")
+GOOGLE_PLAY_PACKAGE_NAME = os.environ.get(
+    "GOOGLE_PLAY_PACKAGE_NAME", "com.portableai.portable_ai_flutter"
+)
+GOOGLE_PLAY_SERVICE_ACCOUNT_JSON = os.environ.get("GOOGLE_PLAY_SERVICE_ACCOUNT_JSON")
+GOOGLE_PLAY_PRODUCT_DAYS = {
+    "rankrocket_monthly": 30,
+    "rankrocket_annual": 365,
+}
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("LICENSE_SECRET_KEY") or secrets.token_hex(16)
@@ -50,17 +61,39 @@ def init_db():
             notes TEXT
         );
         CREATE TABLE IF NOT EXISTS licenses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            license_key TEXT UNIQUE NOT NULL,
-            device_id TEXT,
-            issued_at TEXT,
-            expires_at TEXT,
-            duration_days INTEGER,
-            notes TEXT
-        );
+             id INTEGER PRIMARY KEY AUTOINCREMENT,
+             license_key TEXT UNIQUE NOT NULL,
+             device_id TEXT,
+             issued_at TEXT,
+             expires_at TEXT,
+             duration_days INTEGER,
+             notes TEXT
+         );
+         CREATE TABLE IF NOT EXISTS           google_play_purchases (
+             id INTEGER PRIMARY KEY AUTOINCREMENT,
+             purchase_token TEXT UNIQUE NOT NULL,
+             device_id TEXT NOT NULL,
+             product_id TEXT NOT NULL,
+             verified_at TEXT NOT NULL,
+             order_id TEXT
+         );
+         CREATE TABLE IF NOT EXISTS releases (
+             id INTEGER PRIMARY KEY AUTOINCREMENT,
+             version TEXT NOT NULL,
+             build_number TEXT NOT NULL,
+             platform TEXT NOT NULL,
+             commit_hash TEXT,
+             workflow_run TEXT,
+             created_at TEXT NOT NULL,
+             UNIQUE(version, build_number, platform)
+         );
         """
     )
     conn.commit()
+    latest = conn.execute("SELECT version FROM releases ORDER BY id DESC LIMIT 1").fetchone()
+    if latest:
+        global CURRENT_APP_VERSION
+        CURRENT_APP_VERSION = latest[0]
     conn.close()
 
 
@@ -194,6 +227,135 @@ def status():
             }
         )
     return _payload(dev)
+
+
+@app.route("/api/v1/releases", methods=["POST"])
+def register_release():
+    if not RELEASE_TOKEN or not hmac.compare_digest(
+        request.headers.get("Authorization", ""), f"Bearer {RELEASE_TOKEN}"
+    ):
+        return jsonify({"error": "Unauthorized"}), 401
+    data = request.get_json(silent=True) or {}
+    version = (data.get("version") or "").strip()
+    build_number = (data.get("build_number") or "").strip()
+    platform = (data.get("platform") or "").strip().lower()
+    if not version or not build_number or platform not in {"android", "ios"}:
+        return jsonify({"error": "version, build_number and platform are required"}), 400
+    db = get_db()
+    db.execute(
+        """INSERT OR IGNORE INTO releases
+           (version, build_number, platform, commit_hash, workflow_run, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)""",
+        (
+            version,
+            build_number,
+            platform,
+            data.get("commit"),
+            data.get("workflow_run"),
+            _now_iso(),
+        ),
+    )
+    db.commit()
+    global CURRENT_APP_VERSION
+    CURRENT_APP_VERSION = version
+    return jsonify({"status": "recorded", "version": version, "build_number": build_number})
+
+
+def _google_play_service():
+    if not GOOGLE_PLAY_SERVICE_ACCOUNT_JSON:
+        return None
+    from google.oauth2 import service_account
+    from googleapiclient.discovery import build
+
+    info = json.loads(GOOGLE_PLAY_SERVICE_ACCOUNT_JSON)
+    credentials = service_account.Credentials.from_service_account_info(
+        info, scopes=["https://www.googleapis.com/auth/androidpublisher"]
+    )
+    return build("androidpublisher", "v3", credentials=credentials, cache_discovery=False)
+
+
+def _extend_device_license(device_id, duration_days):
+    db = get_db()
+    dev = db.execute(
+        "SELECT * FROM devices WHERE device_id = ?", (device_id,)
+    ).fetchone()
+    if dev is None:
+        return None
+    now = datetime.datetime.now(datetime.timezone.utc)
+    base = now
+    if dev["license_expires_at"]:
+        current = _parse_iso(dev["license_expires_at"])
+        if current > base:
+            base = current
+    expires = base + datetime.timedelta(days=duration_days)
+    db.execute(
+        "UPDATE devices SET license_expires_at = ? WHERE device_id = ?",
+        (expires.isoformat(), device_id),
+    )
+    db.commit()
+    return expires
+
+
+@app.route("/api/v1/google-play/verify", methods=["POST"])
+def verify_google_play_purchase():
+    data = request.get_json(silent=True) or {}
+    device_id = (data.get("device_id") or "").strip()
+    product_id = (data.get("product_id") or "").strip()
+    purchase_token = (data.get("purchase_token") or "").strip()
+    if not device_id or not product_id or not purchase_token:
+        return jsonify({"error": "device_id, product_id and purchase_token required"}), 400
+    duration_days = GOOGLE_PLAY_PRODUCT_DAYS.get(product_id)
+    if duration_days is None:
+        return jsonify({"error": "Unknown Google Play product"}), 400
+    service = _google_play_service()
+    if service is None:
+        return jsonify({"error": "Google Play verification is not configured"}), 503
+    db = get_db()
+    existing = db.execute(
+        "SELECT * FROM google_play_purchases WHERE purchase_token = ?",
+        (purchase_token,),
+    ).fetchone()
+    if existing is not None:
+        if existing["device_id"] != device_id or existing["product_id"] != product_id:
+            return jsonify({"error": "Purchase token is bound to another device or product"}), 409
+        return _payload(db.execute(
+            "SELECT * FROM devices WHERE device_id = ?", (device_id,)
+        ).fetchone())
+    try:
+        response = service.purchases().subscriptionsv2().get(
+            packageName=GOOGLE_PLAY_PACKAGE_NAME,
+            token=purchase_token,
+        ).execute()
+        if response.get("subscriptionState") not in {
+            "SUBSCRIPTION_STATE_ACTIVE",
+            "SUBSCRIPTION_STATE_IN_GRACE_PERIOD",
+        }:
+            return jsonify({"error": "Google Play subscription is not active"}), 402
+        line_items = response.get("lineItems") or []
+        item = next(
+            (entry for entry in line_items if entry.get("productId") == product_id),
+            None,
+        )
+        if item is None or not item.get("expiryTime"):
+            return jsonify({"error": "Google Play product or expiry not found"}), 402
+        service.purchases().subscriptions().acknowledge(
+            packageName=GOOGLE_PLAY_PACKAGE_NAME,
+            subscriptionId=product_id,
+            token=purchase_token,
+            body={},
+        ).execute()
+    except Exception:
+        return jsonify({"error": "Google Play purchase verification failed"}), 502
+    db.execute(
+        "INSERT INTO google_play_purchases (purchase_token, device_id, product_id, verified_at, order_id) VALUES (?, ?, ?, ?, ?)",
+        (purchase_token, device_id, product_id, _now_iso(), response.get("latestOrderId")),
+    )
+    expires = _extend_device_license(device_id, duration_days)
+    if expires is None:
+        return jsonify({"error": "Unknown device"}), 404
+    return _payload(db.execute(
+        "SELECT * FROM devices WHERE device_id = ?", (device_id,)
+    ).fetchone())
 
 
 _activate_hits = {}
@@ -356,6 +518,14 @@ def admin_logout():
     return redirect(url_for("admin_login"))
 
 
+def _version_status(installed):
+    if not installed:
+        return '<span class="warn">Unknown</span>'
+    if installed == CURRENT_APP_VERSION:
+        return '<span class="ok">Up to date</span>'
+    return f'<span class="warn">Update available ({html.escape(CURRENT_APP_VERSION)})</span>'
+
+
 def _device_status_label(dev):
     status, exp, _days = _device_state(dev)
     css = {"active": "ok", "trial": "warn", "expired": "bad", "needs_license": "bad"}.get(
@@ -369,6 +539,15 @@ def _device_status_label(dev):
 def admin_dashboard():
     db = get_db()
     rows = db.execute("SELECT * FROM devices ORDER BY id DESC").fetchall()
+    releases = db.execute("SELECT * FROM releases ORDER BY id DESC LIMIT 20").fetchall()
+    release_rows = "".join(
+        f"<tr><td>{html.escape(r['version'])}</td>"
+        f"<td>{html.escape(r['build_number'])}</td>"
+        f"<td>{html.escape(r['platform'])}</td>"
+        f"<td>{html.escape(r['commit_hash'] or '-')}</td>"
+        f"<td>{html.escape(r['created_at'])}</td></tr>"
+        for r in releases
+    ) or '<tr><td colspan="5">No GitHub releases recorded yet.</td></tr>'
     tbody = ""
     for d in rows:
         tbody += (
@@ -376,33 +555,46 @@ def admin_dashboard():
             f"<td><b>{d['device_code']}</b></td>"
             f"<td>{html.escape(d['platform'] or '-')}</td>"
             f"<td>{html.escape(d['model'] or '-')}</td>"
-            f"<td>{html.escape(d['app_version'] or '-')}</td>"
-            f"<td>{_device_status_label(d)}</td>"
+             f"<td>{html.escape(d['app_version'] or '-')}</td>"
+             f"<td>{_version_status(d['app_version'])}</td>"
+             f"<td>{_device_status_label(d)}</td>"
             f"<td>{(_device_state(d)[1]) or '-'}</td>"
             f"<td>{d['first_seen'][:10] if d['first_seen'] else '-'}</td>"
             f"<td>{d['last_seen'][:10] if d['last_seen'] else '-'}</td>"
             "<td>"
-            f'<form method="post" action="/admin/device/{d["id"]}/extend">'
-            '<input type="number" name="days" value="30" size="3" min="1">'
+            f'<form method="post" action="/admin/device/{d["id"]}/extend" style="display:inline-block">'
+            '<input type="number" name="days" placeholder="30" size="3" min="1" required> days '
             '<button>Extend</button></form>'
-            f'<form method="post" action="/admin/device/{d["id"]}/revoke">'
+            f'<form method="post" action="/admin/device/{d["id"]}/revoke" style="display:inline-block">'
             '<button>Revoke</button></form>'
-            f'<form method="post" action="/admin/device/{d["id"]}/reset-trial">'
+            f'<form method="post" action="/admin/device/{d["id"]}/reset-trial" style="display:inline-block">'
             '<button>Reset trial</button></form>'
             "</td></tr>"
         )
     return render_template_string(
         _PAGE,
-        extra=f"""<div class="box"><h3>Generate license key</h3>
+        extra=f"""<div class="box"><h3>Google Play subscriptions</h3>
+         <p>Android product IDs and prices:</p>
+         <ul><li><b>rankrocket_monthly</b> — ₹120 / 30 days</li>
+         <li><b>rankrocket_annual</b> — ₹1,000 / 365 days</li></ul>
+         <p>Verified purchases extend the device license automatically. Configure
+         <code>GOOGLE_PLAY_PACKAGE_NAME</code> and
+         <code>GOOGLE_PLAY_SERVICE_ACCOUNT_JSON</code> on the server before accepting payments.</p>
+         </div>
+         <div class="box"><h3>Generate license key</h3>
         <form method="post" action="/admin/generate-key">
         <input name="device_code" placeholder="Device code (8 chars)" required>
         <input type="number" name="duration_days" value="365" min="1" required> days
         <input name="notes" placeholder="notes (e.g. payment id)">
         <button>Generate key</button></form>
-        <p><a href="/admin/logout">Logout</a></p></div>
-        <table><thead><tr><th>Code</th><th>Platform</th><th>Model</th>
-        <th>Version</th><th>Status</th><th>Expires</th><th>First seen</th>
-        <th>Last seen</th><th>Actions</th></tr></thead><tbody>{tbody}</tbody></table>""",
+                 <p>Current generated version: <b>{html.escape(CURRENT_APP_VERSION)}</b></p>
+         <p><a href="/admin/logout">Logout</a></p></div>
+         <table><thead><tr><th>Code</th><th>Platform</th><th>Model</th>
+         <th>Installed version</th><th>Version status</th><th>Status</th><th>Expires</th><th>First seen</th>
+         <th>Last seen</th><th>Actions</th></tr></thead><tbody>{tbody}</tbody></table>
+         <div class="box"><h3>Release history</h3>
+         <table><thead><tr><th>Version</th><th>Build</th><th>Platform</th><th>Commit</th><th>Created</th></tr></thead>
+         <tbody>{release_rows}</tbody></table></div>""",
     )
 
 
